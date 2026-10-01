@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taipei Metro OCC - Station Emergency Evacuation Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Noto+Sans+TC:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans TC"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            cyber: {
+              cyan: '#00f0ff',
+              blue: '#0066ff',
+              red: '#ff0055',
+              green: '#00ffaa',
+              amber: '#ffaa00',
+              purple: '#8b5cf6',
+              dark: '#0a0d14'
+            }
+          },
+          animation: {
+            'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'radar-spin': 'spin 8s linear infinite',
+            'glow-cyan': 'glowCyan 2s ease-in-out infinite alternate',
+            'glow-red': 'glowRed 1s ease-in-out infinite alternate',
+          },
+          keyframes: {
+            glowCyan: {
+              '0%': { boxShadow: '0 0 5px rgba(0, 240, 255, 0.2), inset 0 0 5px rgba(0, 240, 255, 0.1)' },
+              '100%': { boxShadow: '0 0 20px rgba(0, 240, 255, 0.6), inset 0 0 10px rgba(0, 240, 255, 0.3)' }
+            },
+            glowRed: {
+              '0%': { boxShadow: '0 0 5px rgba(255, 0, 85, 0.3), inset 0 0 5px rgba(255, 0, 85, 0.2)' },
+              '100%': { boxShadow: '0 0 30px rgba(255, 0, 85, 0.9), inset 0 0 15px rgba(255, 0, 85, 0.5)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(10, 13, 20, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 240, 255, 0.3);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 240, 255, 0.7);
+    }
+
+    /* Glassmorphism Styles */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glass-panel-alert {
+      background: rgba(45, 10, 20, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 0, 85, 0.4);
+      box-shadow: 0 8px 32px 0 rgba(255, 0, 85, 0.2);
+    }
+
+    /* Animated SVG Blueprint Flow Lines */
+    .flow-line {
+      stroke-dasharray: 8, 8;
+      animation: flowAnimation 1s linear infinite;
+    }
+    .flow-line-reverse {
+      stroke-dasharray: 8, 8;
+      animation: flowAnimationReverse 1s linear infinite;
+    }
+    .flow-line-fast {
+      stroke-dasharray: 10, 6;
+      animation: flowAnimation 0.5s linear infinite;
+    }
+
+    @keyframes flowAnimation {
+      from { stroke-dashoffset: 32; }
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes flowAnimationReverse {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: 32; }
+    }
+
+    /* DEFCON Red Strobe Background FX */
+    .emergency-strobe {
+      animation: strobeBg 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes strobeBg {
+      0% { background-color: rgba(255, 0, 85, 0.05); }
+      100% { background-color: rgba(255, 0, 85, 0.25); }
+    }
+
+    /* Scanlines Overlay */
+    .scanlines {
+      background: linear-gradient(
+        to bottom,
+        rgba(255,255,255,0),
+        rgba(255,255,255,0) 50%,
+        rgba(0, 0, 0, 0.3) 50%,
+        rgba(0, 0, 0, 0.3)
+      );
+      background-size: 100% 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen overflow-x-hidden selection:bg-cyan-500 selection:text-black">
+
+  <!-- Ambient Glowing Background Orbs -->
+  <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div id="orb-primary" class="absolute -top-32 -left-32 w-96 h-96 bg-cyan-600/20 rounded-full blur-3xl transition-all duration-700"></div>
+    <div id="orb-secondary" class="absolute top-1/2 -right-32 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl transition-all duration-700"></div>
+    <div id="orb-emergency" class="absolute -bottom-32 left-1/3 w-96 h-96 bg-red-600/0 rounded-full blur-3xl transition-all duration-700"></div>
+  </div>
+
+  <!-- Top Navigation / Status Header -->
+  <header class="relative z-20 glass-panel border-b border-slate-800/80 px-4 py-3 sticky top-0">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Brand & Title -->
+      <div class="flex items-center gap-3">
+        <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/30 border border-cyan-400/40 text-cyan-400 shadow-lg shadow-cyan-500/20">
+          <i data-lucide="shield-alert" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold tracking-wider text-slate-100 flex items-center gap-2">
+              臺北捷運中央行控中心 <span class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-500/30 font-mono">TAIPEI METRO OCC</span>
+            </h1>
+          </div>
+          <p class="text-xs text-slate-400 font-mono">STATION EMERGENCY & EVACUATION COMMAND SYSTEM (SEECS v4.8)</p>
+        </div>
+      </div>
+
+      <!-- Real-time Clock & DEFCON Status Badge -->
+      <div class="flex items-center gap-4">
+        <!-- Live Clock -->
+        <div class="hidden sm:flex flex-col items-end font-mono">
+          <div id="live-clock" class="text-lg font-extrabold text-cyan-400 tracking-wider">10:52:21.<span class="text-xs text-cyan-600">842</span></div>
+          <div id="live-date" class="text-[10px] text-slate-400">2026-09-24 THU | TAIPEI HQ</div>
+        </div>
+
+        <!-- DEFCON Status Button Trigger -->
+        <button id="defcon-btn" onclick="toggleDefconMode()" class="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-slate-900/80 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/30 transition-all cursor-pointer font-mono text-xs font-bold shadow-lg group">
+          <span class="relative flex h-3 w-3">
+            <span id="defcon-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span id="defcon-dot" class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+          </span>
+          <span id="defcon-text">DEFCON-5 (NORMAL)</span>
+          <span class="text-[10px] opacity-60 bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono group-hover:bg-slate-700">Spacebar</span>
+        </button>
+
+        <!-- Audio Toggle Button -->
+        <button id="audio-btn" onclick="toggleAudio()" class="p-2.5 rounded-xl glass-panel border-slate-700 text-slate-400 hover:text-cyan-400 transition-colors" title="切換系統音效">
+          <i id="audio-icon" data-lucide="volume-x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Emergency Alert Banner Toast (Hidden by default) -->
+  <div id="emergency-banner" class="hidden relative z-30 bg-red-600 text-white font-mono py-2 px-4 text-center font-bold text-sm tracking-widest animate-pulse flex items-center justify-center gap-3 border-b-2 border-red-400 shadow-2xl">
+    <i data-lucide="siren" class="w-5 h-5 animate-spin"></i>
+    <span>⚠️ 警告：全站緊急疏散程序已啟動！月台門全開、防火閘門已鎖定、排煙風機 100% 運轉中！</span>
+    <button onclick="toggleDefconMode()" class="ml-4 px-2 py-0.5 bg-black/40 hover:bg-black/70 rounded text-xs underline">解除警戒</button>
+  </div>
+
+  <!-- Main Container -->
+  <main class="relative z-10 max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- View Switcher Tabs & Quick Action Toolbar -->
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 glass-panel p-2 rounded-2xl">
+      <!-- Tabs -->
+      <div class="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+        <button id="tab-evac-btn" onclick="switchTab('evac')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold font-mono transition-all bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md">
+          <i data-lucide="map" class="w-4 h-4"></i>
+          站體緊急逃生圖 (Station Evacuation)
+        </button>
+        <button id="tab-track-btn" onclick="switchTab('track')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold font-mono transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+          <i data-lucide="activity" class="w-4 h-4"></i>
+          全線路軌監控 (Track Operations)
+        </button>
+      </div>
+
+      <!-- Station Selector & Global Broadcast -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-2 bg-slate-900/60 px-3 py-1.5 rounded-xl border border-slate-800 text-xs">
+          <i data-lucide="building-2" class="w-4 h-4 text-cyan-400"></i>
+          <span class="text-slate-400">目前監控站體:</span>
+          <select id="station-select" onchange="onStationChange(this.value)" class="bg-transparent text-slate-100 font-bold focus:outline-none cursor-pointer">
+            <option value="R10" class="bg-slate-900">R10 台北車站 (Taipei Main Station)</option>
+            <option value="BL12" class="bg-slate-900">BL12 忠孝復興 (Zhongxiao Fuxing)</option>
+            <option value="G12" class="bg-slate-900">G12 西門 (Ximen)</option>
+            <option value="R05" class="bg-slate-900">R05 象山 (Xiangshan)</option>
+          </select>
+        </div>
+
+        <button onclick="triggerBroadcastAlert()" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 text-xs font-bold transition-all cursor-pointer">
+          <i data-lucide="megaphone" class="w-4 h-4"></i>
+          一鍵全站疏散廣播
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB 1: EVACUATION BLUEPRINT SYSTEM VIEW (DEFAULT) -->
+    <div id="view-evac" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left Column: Interactive Station Blueprint Canvas (8 Cols) -->
+      <div class="lg:col-col span-1 lg:col-span-8 flex flex-col gap-4">
+        
+        <!-- Blueprint Control Panel -->
+        <div class="glass-panel p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 border-cyan-500/20">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></div>
+            <h2 class="text-sm font-bold tracking-wide text-slate-200">
+              <span id="blueprint-title">R10 台北車站</span> - 站體剖面與疏散向量圖 (B1/B2 Level)
+            </h2>
+          </div>
+
+          <!-- Hazard Simulation Toggle Controls -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="sim-smoke-btn" onclick="toggleHazard('smoke')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-red-950/60 text-slate-300 hover:text-red-400 border border-slate-700 hover:border-red-500/40 text-xs font-mono transition-all flex items-center gap-1.5">
+              <i data-lucide="flame" class="w-3.5 h-3.5"></i>
+              <span>模擬 B2 月台發煙</span>
+            </button>
+            <button id="sim-block-btn" onclick="toggleHazard('block')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-amber-950/60 text-slate-300 hover:text-amber-400 border border-slate-700 hover:border-amber-500/40 text-xs font-mono transition-all flex items-center gap-1.5">
+              <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+              <span>模擬 Exit C 阻塞</span>
+            </button>
+            <button onclick="resetSimulation()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 text-xs font-mono transition-all" title="重置模擬狀態">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- SVG Floorplan Graphic Blueprint Container -->
+        <div class="glass-panel rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between min-h-[460px] border-cyan-500/30 shadow-2xl">
+          
+          <!-- Grid Line Graphic Background -->
+          <div class="absolute inset-0 bg-[radial-gradient(#00f0ff_1px,transparent_1px)] [background-size:16px_16px] opacity-10 pointer-events-none"></div>
+
+          <!-- Station SVG Floor Map -->
+          <div class="relative w-full h-full min-h-[400px] flex items-center justify-center">
+            <svg id="blueprint-svg" viewBox="0 0 800 450" class="w-full h-full select-none transition-all duration-500">
+              <defs>
+                <!-- Arrow Marker Filters & Defs -->
+                <marker id="arrow-cyan" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#00f0ff" />
+                </marker>
+                <marker id="arrow-green" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#00ffaa" />
+                </marker>
+                <marker id="arrow-red" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff0055" />
+                </marker>
+
+                <!-- Smoke Zone Pulse Glow -->
+                <radialGradient id="smokeGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#ff0055" stop-opacity="0.6"/>
+                  <stop offset="60%" stop-color="#ffaa00" stop-opacity="0.3"/>
+                  <stop offset="100%" stop-color="#1e293b" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+
+              <!-- Level Labels -->
+              <text x="25" y="110" fill="#64748b" font-family="monospace" font-size="12" font-weight="bold">B1 穿堂大廳層 (CONCOURSE)</text>
+              <text x="25" y="320" fill="#64748b" font-family="monospace" font-size="12" font-weight="bold">B2 月台層 (PLATFORM)</text>
+
+              <!-- Main Level Floor Enclosures -->
+              <!-- B1 Concourse Outline -->
+              <rect x="120" y="80" width="560" height="130" rx="12" fill="#0f172a" fill-opacity="0.6" stroke="#334155" stroke-width="2" stroke-dasharray="4,4"/>
+              
+              <!-- B2 Platform Outline -->
+              <rect id="b2-platform-rect" x="160" y="290" width="480" height="100" rx="12" fill="#0f172a" fill-opacity="0.7" stroke="#334155" stroke-width="2"/>
+              <!-- Track lines next to platform -->
+              <line x1="140" y1="280" x2="660" y2="280" stroke="#ff0055" stroke-width="2" stroke-dasharray="8,4" opacity="0.6"/>
+              <line x1="140" y1="400" x2="660" y2="400" stroke="#00f0ff" stroke-width="2" stroke-dasharray="8,4" opacity="0.6"/>
+              <text x="170" y="275" fill="#ff0055" font-size="9" font-family="monospace">淡水信義線 往淡水 Track 1</text>
+              <text x="170" y="413" fill="#00f0ff" font-size="9" font-family="monospace">淡水信義線 往象山 Track 2</text>
+
+              <!-- Smoke / Hazard Overlay on B2 (Hidden by default) -->
+              <g id="smoke-hazard-layer" opacity="0" class="transition-opacity duration-700 pointer-events-none">
+                <circle cx="300" cy="340" r="90" fill="url(#smokeGlow)" class="animate-pulse" />
+                <circle cx="340" cy="330" r="60" fill="#334155" fill-opacity="0.6" class="blur-md animate-bounce" />
+                <text x="240" y="345" fill="#ff0055" font-weight="extrabold" font-size="14" font-family="monospace">🔥 高溫發煙區域 (HAZARD ZONE)</text>
+              </g>
+
+              <!-- Escalators / Staircases Connecting B2 -> B1 -->
+              <!-- West Stairs -->
+              <g id="stairs-west">
+                <rect x="220" y="200" width="40" height="100" rx="4" fill="#1e293b" stroke="#00f0ff" stroke-width="1.5"/>
+                <line x1="220" y1="220" x2="260" y2="220" stroke="#475569"/>
+                <line x1="220" y1="240" x2="260" y2="240" stroke="#475569"/>
+                <line x1="220" y1="260" x2="260" y2="260" stroke="#475569"/>
+                <line x1="220" y1="280" x2="260" y2="280" stroke="#475569"/>
+                <text x="210" y="255" fill="#94a3b8" font-size="9" font-family="sans-serif" writing-mode="tb">西側電扶梯</text>
+              </g>
+
+              <!-- East Stairs -->
+              <g id="stairs-east">
+                <rect x="540" y="200" width="40" height="100" rx="4" fill="#1e293b" stroke="#00f0ff" stroke-width="1.5"/>
+                <line x1="540" y1="220" x2="580" y2="220" stroke="#475569"/>
+                <line x1="540" y1="240" x2="580" y2="240" stroke="#475569"/>
+                <line x1="540" y1="260" x2="580" y2="260" stroke="#475569"/>
+                <line x1="540" y1="280" x2="580" y2="280" stroke="#475569"/>
+                <text x="588" y="255" fill="#94a3b8" font-size="9" font-family="sans-serif" writing-mode="tb">東側電扶梯</text>
+              </g>
+
+              <!-- Emergency Exits (B1 -> Outdoors) -->
+              <!-- Exit A (Top-Left) -->
+              <g id="exit-A-group" class="cursor-pointer hover:opacity-80 transition-all">
+                <rect x="140" y="25" width="80" height="36" rx="6" fill="#065f46" stroke="#00ffaa" stroke-width="2"/>
+                <text x="180" y="42" fill="#00ffaa" font-weight="bold" font-size="11" text-anchor="middle">EXIT A</text>
+                <text x="180" y="54" fill="#a7f3d0" font-size="8" text-anchor="middle">許昌街出口</text>
+              </g>
+
+              <!-- Exit B (Top-Right) -->
+              <g id="exit-B-group" class="cursor-pointer hover:opacity-80 transition-all">
+                <rect x="580" y="25" width="80" height="36" rx="6" fill="#065f46" stroke="#00ffaa" stroke-width="2"/>
+                <text x="620" y="42" fill="#00ffaa" font-weight="bold" font-size="11" text-anchor="middle">EXIT B</text>
+                <text x="620" y="54" fill="#a7f3d0" font-size="8" text-anchor="middle">忠孝西路出口</text>
+              </g>
+
+              <!-- Exit C (Bottom-Left) -->
+              <g id="exit-C-group" class="cursor-pointer hover:opacity-80 transition-all">
+                <rect id="exit-C-bg" x="50" y="125" width="80" height="36" rx="6" fill="#065f46" stroke="#00ffaa" stroke-width="2"/>
+                <text id="exit-C-text" x="90" y="142" fill="#00ffaa" font-weight="bold" font-size="11" text-anchor="middle">EXIT C</text>
+                <text id="exit-C-sub" x="90" y="154" fill="#a7f3d0" font-size="8" text-anchor="middle">館前路出口</text>
+              </g>
+
+              <!-- Exit D (Bottom-Right) -->
+              <g id="exit-D-group" class="cursor-pointer hover:opacity-80 transition-all">
+                <rect x="670" y="125" width="80" height="36" rx="6" fill="#065f46" stroke="#00ffaa" stroke-width="2"/>
+                <text x="710" y="142" fill="#00ffaa" font-weight="bold" font-size="11" text-anchor="middle">EXIT D</text>
+                <text x="710" y="154" fill="#a7f3d0" font-size="8" text-anchor="middle">捷運地下街</text>
+              </g>
+
+              <!-- DYNAMIC EVACUATION PATH VECTORS (Animated SVG Paths) -->
+              <g id="evacuation-paths">
+                <!-- Path 1: B2 Platform -> West Stairs -> B1 Concourse -->
+                <path id="path-b2-west" d="M 300 340 L 240 340 L 240 145" fill="none" stroke="#00f0ff" stroke-width="3" class="flow-line-fast" marker-end="url(#arrow-cyan)"/>
+                
+                <!-- Path 2: B2 Platform -> East Stairs -> B1 Concourse -->
+                <path id="path-b2-east" d="M 500 340 L 560 340 L 560 145" fill="none" stroke="#00f0ff" stroke-width="3" class="flow-line-fast" marker-end="url(#arrow-cyan)"/>
+
+                <!-- Path 3: B1 -> Exit A -->
+                <path id="path-b1-exitA" d="M 240 145 L 180 145 L 180 65" fill="none" stroke="#00ffaa" stroke-width="3.5" class="flow-line" marker-end="url(#arrow-green)"/>
+
+                <!-- Path 4: B1 -> Exit B -->
+                <path id="path-b1-exitB" d="M 560 145 L 620 145 L 620 65" fill="none" stroke="#00ffaa" stroke-width="3.5" class="flow-line" marker-end="url(#arrow-green)"/>
+
+                <!-- Path 5: B1 -> Exit C -->
+                <path id="path-b1-exitC" d="M 240 145 L 135 145" fill="none" stroke="#00ffaa" stroke-width="3.5" class="flow-line" marker-end="url(#arrow-green)"/>
+
+                <!-- Path 6: B1 -> Exit D -->
+                <path id="path-b1-exitD" d="M 560 145 L 665 145" fill="none" stroke="#00ffaa" stroke-width="3.5" class="flow-line" marker-end="url(#arrow-green)"/>
+              </g>
+
+              <!-- Dynamic Reroute Vectors Overlay (Hidden initially) -->
+              <g id="reroute-paths" opacity="0" class="transition-opacity duration-500">
+                <path d="M 180 145 L 560 145" fill="none" stroke="#ffaa00" stroke-width="4" stroke-dasharray="6,4" class="flow-line-fast" marker-end="url(#arrow-cyan)"/>
+                <text x="370" y="135" fill="#ffaa00" font-weight="bold" font-size="10" text-anchor="middle">⚠️ 自動動態分流：強制導引至 Exit B / D</text>
+              </g>
+
+            </svg>
+          </div>
+
+          <!-- Live Floorplan Footer Indicators -->
+          <div class="flex items-center justify-between text-xs font-mono text-slate-400 border-t border-slate-800/80 pt-3 mt-2">
+            <div class="flex items-center gap-4">
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> 安全通路 Clear</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span> 動態疏散流向 Vector</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> 阻塞/高風險區 Hazard</span>
+            </div>
+            <div>站體風壓: <span class="text-cyan-400 font-bold">101.3 kPa</span> | 排煙排風量: <span id="fan-flow-rate" class="text-emerald-400 font-bold">42,000 m³/h</span></div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Right Column: Live Evacuation Metrics & Exit Door Gate Status (4 Cols) -->
+      <div class="lg:col-span-4 flex flex-col gap-4">
+        
+        <!-- Live KPI Evacuation Monitor Card -->
+        <div id="kpi-card" class="glass-panel p-5 rounded-2xl border-cyan-500/20 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+              <i data-lucide="users" class="w-4 h-4 text-cyan-400"></i>
+              即時疏散數據監控 (Evacuation Metrics)
+            </h3>
+            <span id="evac-status-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-500/30">
+              STANDBY
+            </span>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-mono">
+              <span class="text-slate-400">全站預估疏散完成度</span>
+              <span id="evac-percent" class="text-cyan-400 font-bold">100 %</span>
+            </div>
+            <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700">
+              <div id="evac-bar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-500" style="width: 100%;"></div>
+            </div>
+          </div>
+
+          <!-- Counters Grid -->
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] text-slate-400 font-mono">滯留旅客人數 (Estimated)</div>
+              <div id="passenger-count" class="text-xl font-extrabold font-mono text-slate-100 mt-1">0 <span class="text-xs font-normal text-slate-400">人</span></div>
+            </div>
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+              <div class="text-[10px] text-slate-400 font-mono">平均疏散流速 (Flow Rate)</div>
+              <div id="flow-rate" class="text-xl font-extrabold font-mono text-cyan-400 mt-1">120 <span class="text-xs font-normal text-slate-400">人/分</span></div>
+            </div>
+          </div>
+
+          <!-- Emergency Systems Hardware Status List -->
+          <div class="space-y-2 pt-2 border-t border-slate-800/80">
+            <div class="text-xs font-bold text-slate-300 font-mono">連動設備運作狀態</div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                <span class="text-slate-400">排煙風機 Fan</span>
+                <span id="fan-status" class="font-bold text-emerald-400 font-mono">NORMAL (30%)</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                <span class="text-slate-400">閘門開啓 Gate</span>
+                <span id="gate-status" class="font-bold text-emerald-400 font-mono">LOCKED</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                <span class="text-slate-400">月台門 PSD</span>
+                <span id="psd-status" class="font-bold text-emerald-400 font-mono">AUTO</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                <span class="text-slate-400">廣播系統 PA</span>
+                <span id="pa-status" class="font-bold text-emerald-400 font-mono">NORMAL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exit Doors Gate Status Panel -->
+        <div class="glass-panel p-4 rounded-2xl space-y-3 flex-1 flex flex-col justify-between">
+          <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+            <i data-lucide="door-open" class="w-4 h-4 text-emerald-400"></i>
+            各出口通行容量與狀態 (Exit Nodes)
+          </h3>
+
+          <div class="space-y-2">
+            <!-- Exit A -->
+            <div class="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                <div>
+                  <div class="text-xs font-bold font-mono">EXIT A - 許昌街</div>
+                  <div class="text-[10px] text-slate-400">排煙負壓: 正常 | 通道寬度: 4.2m</div>
+                </div>
+              </div>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-500/30">CLEAR</span>
+            </div>
+
+            <!-- Exit B -->
+            <div class="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                <div>
+                  <div class="text-xs font-bold font-mono">EXIT B - 忠孝西路</div>
+                  <div class="text-[10px] text-slate-400">排煙負壓: 正常 | 通道寬度: 5.0m</div>
+                </div>
+              </div>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-500/30">CLEAR</span>
+            </div>
+
+            <!-- Exit C -->
+            <div id="exit-c-card" class="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between transition-all">
+              <div class="flex items-center gap-2.5">
+                <div id="exit-c-dot" class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                <div>
+                  <div class="text-xs font-bold font-mono">EXIT C - 館前路</div>
+                  <div id="exit-c-subtext" class="text-[10px] text-slate-400">排煙負壓: 正常 | 通道寬度: 3.8m</div>
+                </div>
+              </div>
+              <span id="exit-c-badge" class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-500/30">CLEAR</span>
+            </div>
+
+            <!-- Exit D -->
+            <div class="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                <div>
+                  <div class="text-xs font-bold font-mono">EXIT D - 捷運地下街</div>
+                  <div class="text-[10px] text-slate-400">排煙負壓: 正常 | 通道寬度: 6.0m</div>
+                </div>
+              </div>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-500/30">CLEAR</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- TAB 2: FULL TRACK OPERATIONS MONITOR VIEW (SECONDARY VIEW) -->
+    <div id="view-track" class="hidden space-y-6">
+      <div class="glass-panel p-6 rounded-2xl border-cyan-500/20 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-bold text-slate-100 flex items-center gap-2">
+            <i data-lucide="git-commit" class="w-5 h-5 text-cyan-400"></i>
+            台北捷運幹線列車動態監控網 (Taipei Metro Live Rail Grid)
+          </h2>
+          <span class="text-xs font-mono text-cyan-400 bg-cyan-950/60 px-2.5 py-1 rounded-lg border border-cyan-500/30">ONLINE • 3 Lines Active</span>
+        </div>
+
+        <!-- Simulated Train Lines -->
+        <div class="space-y-6 pt-2">
+          <!-- Tamsui-Xinyi Line (Red Line) -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-xs font-mono">
+              <span class="text-red-400 font-bold flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-red-500"></span> 淡水信義線 Tamsui-Xinyi Line (R)
+              </span>
+              <span class="text-slate-400">全線列車: 28 列 | 營運狀態: 正常</span>
+            </div>
+            <div class="relative w-full h-8 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-4 justify-between">
+              <div class="absolute inset-x-4 h-1 bg-red-500/30 top-1/2 -translate-y-1/2"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500" title="R05 象山"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500" title="R07 大安"></div>
+              <div class="relative z-10 w-4 h-4 rounded-full bg-red-500 border-2 border-white shadow-lg shadow-red-500/50 animate-pulse" title="R10 台北車站 (列車 102)"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500" title="R13 中山"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500" title="R16 士林"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500" title="R28 淡水"></div>
+            </div>
+          </div>
+
+          <!-- Bannan Line (Blue Line) -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-xs font-mono">
+              <span class="text-blue-400 font-bold flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-blue-500"></span> 板南線 Bannan Line (BL)
+              </span>
+              <span class="text-slate-400">全線列車: 32 列 | 營運狀態: 正常</span>
+            </div>
+            <div class="relative w-full h-8 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-4 justify-between">
+              <div class="absolute inset-x-4 h-1 bg-blue-500/30 top-1/2 -translate-y-1/2"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500"></div>
+              <div class="relative z-10 w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-lg shadow-blue-500/50" title="BL12 忠孝復興"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500"></div>
+            </div>
+          </div>
+
+          <!-- Songshan-Xindian Line (Green Line) -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-xs font-mono">
+              <span class="text-emerald-400 font-bold flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-emerald-500"></span> 松山新店線 Songshan-Xindian Line (G)
+              </span>
+              <span class="text-slate-400">全線列車: 22 列 | 營運狀態: 正常</span>
+            </div>
+            <div class="relative w-full h-8 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-4 justify-between">
+              <div class="absolute inset-x-4 h-1 bg-emerald-500/30 top-1/2 -translate-y-1/2"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500"></div>
+              <div class="relative z-10 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-lg shadow-emerald-500/50" title="G12 西門"></div>
+              <div class="relative z-10 w-3 h-3 rounded-full bg-slate-700 border border-slate-500"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOWER SECTION: Multi-Channel CCTV Monitors & System Console Event Log Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Multi-channel CCTV Feeds (7 Cols) -->
+      <div class="lg:col-span-7 glass-panel p-4 rounded-2xl border-cyan-500/20 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold text-slate-200 font-mono flex items-center gap-2">
+            <i data-lucide="video" class="w-4 h-4 text-cyan-400"></i>
+            站體視訊監視多頻道 (LIVE CCTV FEEDS)
+          </h3>
+          <span class="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> REC 1080P 60FPS
+          </span>
+        </div>
+
+        <!-- 2x2 CCTV Grid Canvas/Simulators -->
+        <div class="grid grid-cols-2 gap-3">
+          <!-- CAM 01 -->
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden aspect-video scanlines flex flex-col justify-between p-2">
+            <div class="flex justify-between items-center text-[10px] font-mono text-cyan-400 z-10">
+              <span class="bg-black/60 px-1.5 py-0.5 rounded">CAM-01: B2月台南向</span>
+              <span class="text-emerald-400">LIVE</span>
+            </div>
+            <!-- Animated Wireframe Graphics in CCTV -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
+              <i data-lucide="camera" class="w-12 h-12 text-slate-600 animate-pulse"></i>
+            </div>
+            <div class="text-[9px] font-mono text-slate-500 z-10 self-end">R10-PLATFORM-S</div>
+          </div>
+
+          <!-- CAM 02 -->
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden aspect-video scanlines flex flex-col justify-between p-2">
+            <div class="flex justify-between items-center text-[10px] font-mono text-cyan-400 z-10">
+              <span class="bg-black/60 px-1.5 py-0.5 rounded">CAM-02: B1穿堂大廳</span>
+              <span class="text-emerald-400">LIVE</span>
+            </div>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
+              <i data-lucide="users" class="w-12 h-12 text-slate-600"></i>
+            </div>
+            <div class="text-[9px] font-mono text-slate-500 z-10 self-end">R10-CONCOURSE-MAIN</div>
+          </div>
+
+          <!-- CAM 03 -->
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden aspect-video scanlines flex flex-col justify-between p-2">
+            <div class="flex justify-between items-center text-[10px] font-mono text-cyan-400 z-10">
+              <span class="bg-black/60 px-1.5 py-0.5 rounded">CAM-03: EXIT B通道</span>
+              <span class="text-emerald-400">LIVE</span>
+            </div>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
+              <i data-lucide="door-open" class="w-12 h-12 text-slate-600"></i>
+            </div>
+            <div class="text-[9px] font-mono text-slate-500 z-10 self-end">R10-EXIT-B</div>
+          </div>
+
+          <!-- CAM 04 -->
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden aspect-video scanlines flex flex-col justify-between p-2">
+            <div class="flex justify-between items-center text-[10px] font-mono text-cyan-400 z-10">
+              <span class="bg-black/60 px-1.5 py-0.5 rounded">CAM-04: 機電主變電站</span>
+              <span class="text-emerald-400">LIVE</span>
+            </div>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
+              <i data-lucide="zap" class="w-12 h-12 text-slate-600"></i>
+            </div>
+            <div class="text-[9px] font-mono text-slate-500 z-10 self-end">R10-POWER-SUB</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-Time Console Event Log & Power Grid (5 Cols) -->
+      <div class="lg:col-span-5 flex flex-col gap-4">
+        
+        <!-- Log Console -->
+        <div class="glass-panel p-4 rounded-2xl border-cyan-500/20 flex-1 flex flex-col justify-between space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-slate-200 font-mono flex items-center gap-2">
+              <i data-lucide="terminal" class="w-4 h-4 text-cyan-400"></i>
+              行控系統事件日誌 (EVENT LOG)
+            </h3>
+            <button onclick="clearConsoleLog()" class="text-[10px] text-slate-500 hover:text-slate-300 font-mono">清除 Clear</button>
+          </div>
+
+          <!-- Scrollable Log Box -->
+          <div id="console-log" class="bg-slate-950/90 rounded-xl p-3 font-mono text-[11px] space-y-2 h-44 overflow-y-auto border border-slate-800/80">
+            <div class="text-slate-400"><span class="text-cyan-500">[10:52:00]</span> SYSTEM: Taipei Metro OCC SEECS v4.8 initialized.</div>
+            <div class="text-emerald-400"><span class="text-cyan-500">[10:52:05]</span> R10 Station: Air ventilation status nominal (101.3 kPa).</div>
+            <div class="text-slate-400"><span class="text-cyan-500">[10:52:12]</span> PSD: Platform screen door sensors active on Track 1 & 2.</div>
+          </div>
+        </div>
+
+        <!-- Power Waveform / Spectrum Simulator -->
+        <div class="glass-panel p-3 rounded-2xl border-cyan-500/20 flex items-center justify-between">
+          <div class="space-y-0.5">
+            <div class="text-[10px] font-mono text-slate-400">第三軌高壓供電 (750V DC)</div>
+            <div class="text-sm font-bold font-mono text-emerald-400">752.4 V / 1,240 A</div>
+          </div>
+          <!-- Waveform Canvas Graphic -->
+          <canvas id="waveform-canvas" width="160" height="36" class="rounded bg-slate-950 border border-slate-800"></canvas>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    /* ===================================================================
+       STATE & GLOBAL CONFIG
+       =================================================================== */
+    let isDefconMode = false;
+    let isSmokeSimulated = false;
+    let isExitCBlocked = false;
+    let isEvacuating = false;
+    let audioEnabled = false;
+
+    let passengerCount = 1280;
+    let flowRate = 120;
+    let evacPercent = 100;
+    let evacInterval = null;
+
+    let audioCtx = null;
+
+    /* ===================================================================
+       INIT & REALTIME CLOCK
+       =================================================================== */
+    window.onload = function() {
+      // Initialize Lucide Icons
+      lucide.createIcons();
+
+      // Start Clock Loop
+      startClock();
+
+      // Draw Power Waveform Animation
+      initWaveformCanvas();
+
+      // Log Startup
+      addLog('OCC Command Center linked with R10 Taipei Station.', 'emerald');
+    };
+
+    function startClock() {
+      const clockEl = document.getElementById('live-clock');
+      const dateEl = document.getElementById('live-date');
+
+      function update() {
+        const now = new Date();
+        const hrs = String(now.getHours()).padStart(2, '0');
+        const mins = String(now.getMinutes()).padStart(2, '0');
+        const secs = String(now.getSeconds()).padStart(2, '0');
+        const ms = String(now.getMilliseconds()).padStart(3, '0');
+
+        clockEl.innerHTML = `${hrs}:${mins}:${secs}.<span class="text-xs text-cyan-600">${ms}</span>`;
+
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        dateEl.textContent = `${year}-${month}-${day} ${days[now.getDay()]} | TAIPEI HQ`;
+
+        requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    }
+
+    /* ===================================================================
+       VIEW SWITCHER TABS
+       =================================================================== */
+    function switchTab(tab) {
+      const evacView = document.getElementById('view-evac');
+      const trackView = document.getElementById('view-track');
+      const evacBtn = document.getElementById('tab-evac-btn');
+      const trackBtn = document.getElementById('tab-track-btn');
+
+      if (tab === 'evac') {
+        evacView.classList.remove('hidden');
+        trackView.classList.add('hidden');
+        evacBtn.className = "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold font-mono transition-all bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md";
+        trackBtn.className = "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold font-mono transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/50";
+        addLog('Switched view to: Station Evacuation Blueprint Panel', 'cyan');
+      } else {
+        evacView.classList.add('hidden');
+        trackView.classList.remove('hidden');
+        trackBtn.className = "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold font-mono transition-all bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md";
+        evacBtn.className = "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold font-mono transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/50";
+        addLog('Switched view to: Full Line Rail Grid Operations', 'cyan');
+      }
+    }
+
+    function onStationChange(val) {
+      const titleEl = document.getElementById('blueprint-title');
+      const names = {
+        'R10': 'R10 台北車站',
+        'BL12': 'BL12 忠孝復興',
+        'G12': 'G12 西門',
+        'R05': 'R05 象山'
+      };
+      titleEl.textContent = names[val] || val;
+      addLog(`Selected Target Station: ${names[val]}`, 'cyan');
+      playTone(600, 0.1);
+    }
+
+    /* ===================================================================
+       EVACUATION & HAZARD SIMULATION ENGINE
+       =================================================================== */
+
+    // Toggle Smoke Hazard on B2
+    function toggleHazard(type) {
+      if (type === 'smoke') {
+        isSmokeSimulated = !isSmokeSimulated;
+        const smokeLayer = document.getElementById('smoke-hazard-layer');
+        const simBtn = document.getElementById('sim-smoke-btn');
+        const fanStatus = document.getElementById('fan-status');
+        const fanFlow = document.getElementById('fan-flow-rate');
+
+        if (isSmokeSimulated) {
+          smokeLayer.style.opacity = '1';
+          simBtn.className = "px-3 py-1.5 rounded-lg bg-red-600 text-white border border-red-400 text-xs font-mono transition-all flex items-center gap-1.5 animate-pulse";
+          fanStatus.textContent = "MAX (100%)";
+          fanStatus.className = "font-bold text-red-400 font-mono";
+          fanFlow.textContent = "120,000 m³/h";
+          addLog('HAZARD ALERT: Smoke detected on Level B2 Platform Zone!', 'red');
+          playTone(300, 0.3);
+
+          // Auto trigger evacuation counters
+          startEvacuationProcess();
+        } else {
+          smokeLayer.style.opacity = '0';
+          simBtn.className = "px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-red-950/60 text-slate-300 hover:text-red-400 border border-slate-700 hover:border-red-500/40 text-xs font-mono transition-all flex items-center gap-1.5";
+          fanStatus.textContent = "NORMAL (30%)";
+          fanStatus.className = "font-bold text-emerald-400 font-mono";
+          fanFlow.textContent = "42,000 m³/h";
+          addLog('HAZARD CLEARED: B2 Platform Smoke cleared.', 'emerald');
+        }
+      } else if (type === 'block') {
+        isExitCBlocked = !isExitCBlocked;
+        const exitCBg = document.getElementById('exit-C-bg');
+        const exitCText = document.getElementById('exit-C-text');
+        const exitCBadge = document.getElementById('exit-c-badge');
+        const exitCDot = document.getElementById('exit-c-dot');
+        const pathExitC = document.getElementById('path-b1-exitC');
+        const reroutePaths = document.getElementById('reroute-paths');
+        const simBtn = document.getElementById('sim-block-btn');
+
+        if (isExitCBlocked) {
+          exitCBg.setAttribute('fill', '#881337');
+          exitCBg.setAttribute('stroke', '#ff0055');
+          exitCText.setAttribute('fill', '#ff0055');
+          exitCBadge.textContent = "BLOCKED";
+          exitCBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono bg-red-950 text-red-400 border border-red-500/30";
+          exitCDot.className = "w-2 h-2 rounded-full bg-red-500 animate-ping";
+          pathExitC.setAttribute('stroke', '#ff0055');
+          reroutePaths.style.opacity = '1';
+
+          simBtn.className = "px-3 py-1.5 rounded-lg bg-amber-600 text-white border border-amber-400 text-xs font-mono transition-all flex items-center gap-1.5 animate-pulse";
+          addLog('ROUTE BLOCKED: Exit C Corridor Obstruction! Rerouting passengers to Exit B & D.', 'amber');
+          playTone(400, 0.2);
+        } else {
+          exitCBg.setAttribute('fill', '#065f46');
+          exitCBg.setAttribute('stroke', '#00ffaa');
+          exitCText.setAttribute('fill', '#00ffaa');
+          exitCBadge.textContent = "CLEAR";
+          exitCBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-500/30";
+          exitCDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+          pathExitC.setAttribute('stroke', '#00ffaa');
+          reroutePaths.style.opacity = '0';
+
+          simBtn.className = "px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-amber-950/60 text-slate-300 hover:text-amber-400 border border-slate-700 hover:border-amber-500/40 text-xs font-mono transition-all flex items-center gap-1.5";
+          addLog('ROUTE CLEARED: Exit C passage unblocked.', 'emerald');
+        }
+      }
+    }
+
+    function resetSimulation() {
+      if (isSmokeSimulated) toggleHazard('smoke');
+      if (isExitCBlocked) toggleHazard('block');
+      if (isDefconMode) toggleDefconMode();
+
+      stopEvacuationProcess();
+      passengerCount = 0;
+      evacPercent = 100;
+      updateEvacUI();
+      addLog('All station hazard simulations reset to initial state.', 'cyan');
+    }
+
+    function startEvacuationProcess() {
+      if (isEvacuating) return;
+      isEvacuating = true;
+      passengerCount = 1450;
+      evacPercent = 0;
+
+      document.getElementById('evac-status-badge').textContent = "EVACUATING";
+      document.getElementById('evac-status-badge').className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-950 text-red-400 border border-red-500/30 animate-pulse";
+      
+      document.getElementById('gate-status').textContent = "UNLOCKED";
+      document.getElementById('gate-status').className = "font-bold text-cyan-400 font-mono";
+      document.getElementById('psd-status').textContent = "OPEN";
+      document.getElementById('psd-status').className = "font-bold text-red-400 font-mono";
+      document.getElementById('pa-status').textContent = "BROADCASTING";
+      document.getElementById('pa-status').className = "font-bold text-red-400 font-mono";
+
+      if (evacInterval) clearInterval(evacInterval);
+
+      evacInterval = setInterval(() => {
+        if (passengerCount > 0) {
+          const rate = Math.floor(Math.random() * 30) + 110;
+          passengerCount = Math.max(0, passengerCount - Math.floor(rate / 4));
+          evacPercent = Math.min(100, Math.floor(((1450 - passengerCount) / 1450) * 100));
+          document.getElementById('flow-rate').textContent = `${rate} 人/分`;
+          updateEvacUI();
+        } else {
+          clearInterval(evacInterval);
+          document.getElementById('evac-status-badge').textContent = "COMPLETED";
+          document.getElementById('evac-status-badge').className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-500/30";
+          addLog('EVACUATION COMPLETE: Station is fully evacuated of passengers.', 'emerald');
+        }
+      }, 1000);
+    }
+
+    function stopEvacuationProcess() {
+      isEvacuating = false;
+      if (evacInterval) clearInterval(evacInterval);
+      document.getElementById('evac-status-badge').textContent = "STANDBY";
+      document.getElementById('evac-status-badge').className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-500/30";
+      
+      document.getElementById('gate-status').textContent = "LOCKED";
+      document.getElementById('gate-status').className = "font-bold text-emerald-400 font-mono";
+      document.getElementById('psd-status').textContent = "AUTO";
+      document.getElementById('psd-status').className = "font-bold text-emerald-400 font-mono";
+      document.getElementById('pa-status').textContent = "NORMAL";
+      document.getElementById('pa-status').className = "font-bold text-emerald-400 font-mono";
+    }
+
+    function updateEvacUI() {
+      document.getElementById('passenger-count').innerHTML = `${passengerCount} <span class="text-xs font-normal text-slate-400">人</span>`;
+      document.getElementById('evac-percent').textContent = `${evacPercent} %`;
+      document.getElementById('evac-bar').style.width = `${evacPercent}%`;
+    }
+
+    function triggerBroadcastAlert() {
+      addLog('廣播系統: "全站乘客請注意，本站啟動緊急疏散，請往出口方向移動！"', 'amber');
+      playTone(880, 0.4);
+      setTimeout(() => playTone(554.37, 0.4), 200);
+      startEvacuationProcess();
+    }
+
+    /* ===================================================================
+       DEFCON-1 EMERGENCY RED MODE & KEYBOARD SHORTCUTS
+       =================================================================== */
+    function toggleDefconMode() {
+      isDefconMode = !isDefconMode;
+
+      const defconBtn = document.getElementById('defcon-btn');
+      const defconPing = document.getElementById('defcon-ping');
+      const defconDot = document.getElementById('defcon-dot');
+      const defconText = document.getElementById('defcon-text');
+      const emergencyBanner = document.getElementById('emergency-banner');
+      const orbEmergency = document.getElementById('orb-emergency');
+
+      if (isDefconMode) {
+        document.body.classList.add('emergency-strobe');
+        defconBtn.className = "flex items-center gap-2.5 px-4 py-2 rounded-xl bg-red-950/90 border border-red-500 text-red-400 hover:bg-red-900 transition-all cursor-pointer font-mono text-xs font-bold shadow-lg animate-pulse";
+        defconPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75";
+        defconDot.className = "relative inline-flex rounded-full h-3 w-3 bg-red-500";
+        defconText.textContent = "DEFCON-1 (ALERT)";
+        emergencyBanner.classList.remove('hidden');
+        orbEmergency.style.backgroundColor = "rgba(255, 0, 85, 0.3)";
+
+        if (!isSmokeSimulated) toggleHazard('smoke');
+        addLog('🚨 CRITICAL ALERT: DEFCON-1 Red Emergency Mode Activated!', 'red');
+        playSiren();
+      } else {
+        document.body.classList.remove('emergency-strobe');
+        defconBtn.className = "flex items-center gap-2.5 px-4 py-2 rounded-xl bg-slate-900/80 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/30 transition-all cursor-pointer font-mono text-xs font-bold shadow-lg group";
+        defconPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+        defconDot.className = "relative inline-flex rounded-full h-3 w-3 bg-emerald-500";
+        defconText.textContent = "DEFCON-5 (NORMAL)";
+        emergencyBanner.classList.add('hidden');
+        orbEmergency.style.backgroundColor = "rgba(255, 0, 85, 0)";
+
+        addLog('DEFCON Status returned to Normal (DEFCON-5).', 'emerald');
+      }
+    }
+
+    // Spacebar shortcut to toggle DEFCON-1
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleDefconMode();
+      }
+    });
+
+    /* ===================================================================
+       CONSOLE LOG UTILITY
+       =================================================================== */
+    function addLog(msg, color = 'slate') {
+      const consoleLog = document.getElementById('console-log');
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0];
+
+      const colorClasses = {
+        'slate': 'text-slate-400',
+        'cyan': 'text-cyan-400',
+        'emerald': 'text-emerald-400 font-bold',
+        'amber': 'text-amber-400 font-bold',
+        'red': 'text-red-400 font-bold'
+      };
+
+      const line = document.createElement('div');
+      line.className = colorClasses[color] || 'text-slate-400';
+      line.innerHTML = `<span class="text-cyan-500">[${timeStr}]</span> ${msg}`;
+
+      consoleLog.appendChild(line);
+      consoleLog.scrollTop = consoleLog.scrollHeight;
+    }
+
+    function clearConsoleLog() {
+      document.getElementById('console-log').innerHTML = '';
+    }
+
+    /* ===================================================================
+       POWER WAVEFORM CANVAS ANIMATION
+       =================================================================== */
+    function initWaveformCanvas() {
+      const canvas = document.getElementById('waveform-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let step = 0;
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = isDefconMode ? '#ff0055' : '#00ffaa';
+
+        for (let x = 0; x < canvas.width; x++) {
+          const y = canvas.height / 2 + Math.sin((x + step) * 0.1) * 8 + (Math.random() - 0.5) * 3;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        step += 2;
+        requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    /* ===================================================================
+       WEB AUDIO SYNTH SOUND GENERATOR
+       =================================================================== */
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      const audioIcon = document.getElementById('audio-icon');
+
+      if (audioEnabled) {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioIcon.setAttribute('data-lucide', 'volume-2');
+        addLog('Audio alerts enabled.', 'cyan');
+        playTone(523.25, 0.1);
+      } else {
+        audioIcon.setAttribute('data-lucide', 'volume-x');
+        addLog('Audio alerts muted.', 'slate');
+      }
+      lucide.createIcons();
+    }
+
+    function playTone(freq, duration) {
+      if (!audioEnabled || !audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playSiren() {
+      if (!audioEnabled || !audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.5);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.6);
+      } catch (e) {}
+    }
+  </script>
+</body>
+</html>
